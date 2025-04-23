@@ -193,7 +193,7 @@ class EditProfileActivity : AppCompatActivity() {
         val loveLanguage = binding.spinnerLoveLanguage.selectedItem.toString()
         val bio = binding.editTextBio.text.toString().trim()
         val location = binding.editTextLocation.text.toString().trim()
-        val searchRadius = binding.editTextSearchRadius.text.toString().trim()
+        val searchRadius = binding.editTextSearchRadius.toString().toIntOrNull() ?: 0
 
         if (searchRadius < 1) {
             Toast.makeText(this, "Search Radius must be a positive number", Toast.LENGTH_SHORT).show()

@@ -15,6 +15,7 @@ import edu.utap.matchnow.databinding.FragmentProfileBinding
 class ProfileFragment : Fragment() {
 
     private var _binding: FragmentProfileBinding? = null
+    // Use a safe getter that assumes _binding is non-null only between onCreateView and onDestroyView.
     private val binding get() = _binding!!
 
     // Get Firestore and current user
@@ -24,7 +25,7 @@ class ProfileFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         _binding = FragmentProfileBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -36,6 +37,9 @@ class ProfileFragment : Fragment() {
         currentUser?.let { user ->
             firestore.collection("users").document(user.uid).get()
                 .addOnSuccessListener { document ->
+                    // Make sure the binding is still valid (i.e. view is not destroyed)
+                    val safeBinding = _binding ?: return@addOnSuccessListener
+
                     if (document != null && document.exists()) {
                         val name = document.getString("name") ?: "Anonymous"
                         val age = document.getLong("age")?.toInt() ?: 0
@@ -47,39 +51,37 @@ class ProfileFragment : Fragment() {
                         val profilePictureUrl = document.getString("profilePictureUrl")
                         val photos = document.get("photos") as? List<String>
 
-                        // Update UI components
-                        binding.nameAge.text = "$name, $age"
-                        binding.loveLanguage.text = "Love Language: $loveLanguage"
-                        binding.bio.text = "\"$bio\""
-                        binding.locationText.text = "Location: $location"
-                        binding.searchRadiusText.text = "Searching Within: $searchRadius miles"
-                        binding.profileTitle.text = "Your Profile"
+                        // Update UI components using safeBinding
+                        safeBinding.nameAge.text = "$name, $age"
+                        safeBinding.loveLanguage.text = "Love Language: $loveLanguage"
+                        safeBinding.bio.text = "\"$bio\""
+                        safeBinding.locationText.text = "Location: $location"
+                        safeBinding.searchRadiusText.text = "Searching Within: $searchRadius miles"
+                        safeBinding.profileTitle.text = "Your Profile"
 
                         // Load the profile picture if URL exists
                         if (!profilePictureUrl.isNullOrEmpty()) {
                             Glide.with(requireContext())
                                 .load(profilePictureUrl)
-                                .into(binding.profilePicture)
+                                .into(safeBinding.profilePicture)
                         }
 
                         // Load photos if available (using the first three URLs)
                         photos?.let { photoList ->
-                            if (photoList.isNotEmpty()) {
-                                if (photoList.size > 0 && photoList[0].isNotEmpty()) {
-                                    Glide.with(requireContext())
-                                        .load(photoList[0])
-                                        .into(binding.photo1)
-                                }
-                                if (photoList.size > 1 && photoList[1].isNotEmpty()) {
-                                    Glide.with(requireContext())
-                                        .load(photoList[1])
-                                        .into(binding.photo2)
-                                }
-                                if (photoList.size > 2 && photoList[2].isNotEmpty()) {
-                                    Glide.with(requireContext())
-                                        .load(photoList[2])
-                                        .into(binding.photo3)
-                                }
+                            if (photoList.isNotEmpty() && photoList[0].isNotEmpty()) {
+                                Glide.with(requireContext())
+                                    .load(photoList[0])
+                                    .into(safeBinding.photo1)
+                            }
+                            if (photoList.size > 1 && photoList[1].isNotEmpty()) {
+                                Glide.with(requireContext())
+                                    .load(photoList[1])
+                                    .into(safeBinding.photo2)
+                            }
+                            if (photoList.size > 2 && photoList[2].isNotEmpty()) {
+                                Glide.with(requireContext())
+                                    .load(photoList[2])
+                                    .into(safeBinding.photo3)
                             }
                         }
                     } else {
