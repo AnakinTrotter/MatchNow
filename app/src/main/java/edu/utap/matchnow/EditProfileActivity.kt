@@ -29,20 +29,20 @@ class EditProfileActivity : AppCompatActivity() {
     private val currentUser = FirebaseAuth.getInstance().currentUser
     private val userDocRef get() = firestore.collection("users").document(currentUser!!.uid)
 
-    // Local URIs for new images (if chosen)
+    // Local URIs for new images.
     private var newProfilePicUri: Uri? = null
     private var newPhotoUri1: Uri? = null
     private var newPhotoUri2: Uri? = null
     private var newPhotoUri3: Uri? = null
 
-    // ActivityResultLaunchers for image picking and location selection
+    // ActivityResultLaunchers for image picking and location selection.
     private lateinit var profilePicLauncher: ActivityResultLauncher<Intent>
     private lateinit var photo1Launcher: ActivityResultLauncher<Intent>
     private lateinit var photo2Launcher: ActivityResultLauncher<Intent>
     private lateinit var photo3Launcher: ActivityResultLauncher<Intent>
     private lateinit var locationPickerLauncher: ActivityResultLauncher<Intent>
 
-    // Predefined list of the 5 love languages
+    // Predefined list of the 5 love languages.
     private val loveLanguages = listOf(
         "Words of Affirmation",
         "Acts of Service",
@@ -51,12 +51,20 @@ class EditProfileActivity : AppCompatActivity() {
         "Physical Touch"
     )
 
+    // New variables to hold the selected location coordinates.
+    private var selectedLat: Double? = null
+    private var selectedLng: Double? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityEditProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Set up the love language spinner with the 5 options
+        // Disable manual typing in the location EditText.
+        binding.editTextLocation.isFocusable = false
+        binding.editTextLocation.isClickable = true
+
+        // Set up the love language spinner.
         val adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_item,
@@ -65,7 +73,7 @@ class EditProfileActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerLoveLanguage.adapter = adapter
 
-        // Register image pickers with explicit lambda parameter names.
+        // Register image pickers.
         profilePicLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -107,26 +115,30 @@ class EditProfileActivity : AppCompatActivity() {
             }
         }
 
-        // Register a launcher for location selection (Map Picker)
+        // Register the location picker launcher.
         locationPickerLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                // Expecting the selected address as a String extra "selectedLocation"
+                // Expect the returned location string (city, state)
+                // along with selectedLat and selectedLng from MapPickerActivity.
                 val selectedLocation = result.data?.getStringExtra("selectedLocation")
-                selectedLocation?.let {
-                    binding.editTextLocation.setText(it)
+                val lat = result.data?.getDoubleExtra("selectedLat", 0.0)
+                val lng = result.data?.getDoubleExtra("selectedLng", 0.0)
+                if (selectedLocation != null && lat != null && lng != null) {
+                    binding.editTextLocation.setText(selectedLocation)
+                    selectedLat = lat
+                    selectedLng = lng
                 }
             }
         }
 
-        // Load existing profile data from Firestore (if it exists)
+        // Load existing profile data from Firestore.
         currentUser?.let {
             userDocRef.get().addOnSuccessListener { document ->
                 if (document.exists()) {
                     binding.editTextName.setText(document.getString("name") ?: "")
                     binding.editTextAge.setText(document.getLong("age")?.toString() ?: "")
-                    // Set spinner selection based on stored love language
                     val storedLoveLanguage = document.getString("loveLanguage") ?: ""
                     val spinnerPosition = loveLanguages.indexOf(storedLoveLanguage)
                     if (spinnerPosition >= 0) {
@@ -134,7 +146,7 @@ class EditProfileActivity : AppCompatActivity() {
                     }
                     binding.editTextBio.setText(document.getString("bio") ?: "")
                     binding.editTextLocation.setText(document.getString("location") ?: "")
-                    binding.editTextSearchRadius.setText(document.getString("searchRadius") ?: "")
+                    binding.editTextSearchRadius.setText(document.getLong("searchRadius")?.toString() ?: "")
 
                     val profilePicUrl = document.getString("profilePictureUrl")
                     val photos = document.get("photos") as? List<*>
@@ -142,7 +154,6 @@ class EditProfileActivity : AppCompatActivity() {
                         Glide.with(this).load(profilePicUrl).into(binding.profilePicture)
                     }
                     if (photos != null && photos.isNotEmpty()) {
-                        // Since photos is non-empty, load the first photo directly.
                         Glide.with(this).load(photos[0]).into(binding.photo1)
                         if (photos.size > 1) {
                             Glide.with(this).load(photos[1]).into(binding.photo2)
@@ -155,20 +166,19 @@ class EditProfileActivity : AppCompatActivity() {
             }
         }
 
-        // Set click listeners for image selection
+        // Set click listeners for image selection.
         binding.profilePicture.setOnClickListener { launchImagePicker(profilePicLauncher) }
         binding.photo1.setOnClickListener { launchImagePicker(photo1Launcher) }
         binding.photo2.setOnClickListener { launchImagePicker(photo2Launcher) }
         binding.photo3.setOnClickListener { launchImagePicker(photo3Launcher) }
 
-        // Set click listener for selecting location on map
+        // Set click listener for selecting location on map.
         binding.selectLocationButton.setOnClickListener {
-            // Launch the MapPickerActivity
             val intent = Intent(this, MapPickerActivity::class.java)
             locationPickerLauncher.launch(intent)
         }
 
-        // Save Changes button: update Firestore and Storage
+        // Save Changes button.
         binding.saveChangesButton.setOnClickListener { saveProfile() }
     }
 
@@ -181,7 +191,7 @@ class EditProfileActivity : AppCompatActivity() {
     private fun saveProfile() {
         binding.saveChangesButton.isEnabled = false
 
-        // Gather and validate inputs
+        // Validate inputs.
         val name = binding.editTextName.text.toString().trim()
         val age = binding.editTextAge.text.toString().toIntOrNull() ?: 0
         if (age < 18) {
@@ -189,11 +199,11 @@ class EditProfileActivity : AppCompatActivity() {
             binding.saveChangesButton.isEnabled = true
             return
         }
-        // Get love language from spinner selection.
         val loveLanguage = binding.spinnerLoveLanguage.selectedItem.toString()
         val bio = binding.editTextBio.text.toString().trim()
+        // Location is provided only via map.
         val location = binding.editTextLocation.text.toString().trim()
-        val searchRadius = binding.editTextSearchRadius.toString().toIntOrNull() ?: 0
+        val searchRadius = binding.editTextSearchRadius.text.toString().toIntOrNull() ?: 0
 
         if (searchRadius < 1) {
             Toast.makeText(this, "Search Radius must be a positive number", Toast.LENGTH_SHORT).show()
@@ -201,6 +211,7 @@ class EditProfileActivity : AppCompatActivity() {
             return
         }
 
+        // Prepare fields to update.
         val updates = hashMapOf<String, Any>(
             "name" to name,
             "age" to age,
@@ -209,8 +220,13 @@ class EditProfileActivity : AppCompatActivity() {
             "location" to location,
             "searchRadius" to searchRadius
         )
+        // Add coordinates if available.
+        if (selectedLat != null && selectedLng != null) {
+            updates["lat"] = selectedLat!!
+            updates["lng"] = selectedLng!!
+        }
 
-        // Prepare image upload tasks if any new images have been selected.
+        // Prepare image upload tasks.
         val uploadTasks = mutableListOf<Task<Uri>>()
         val uid = currentUser!!.uid
 
@@ -228,25 +244,21 @@ class EditProfileActivity : AppCompatActivity() {
         }
 
         if (uploadTasks.isEmpty()) {
-            // No new images selected; update Firestore directly.
             userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
                 binding.saveChangesButton.isEnabled = true
-                finish() // Close activity after saving.
+                finish()
             }
         } else {
             Tasks.whenAllSuccess<Uri>(uploadTasks)
                 .addOnSuccessListener { results ->
                     var profilePicUrl: String? = null
                     val photoUrls = mutableListOf<String>()
-
-                    // Build a list of the URIs in the order they were uploaded.
                     val uriList = listOf(newProfilePicUri, newPhotoUri1, newPhotoUri2, newPhotoUri3)
                     var resultIndex = 0
                     uriList.forEachIndexed { idx, uri ->
                         if (uri != null) {
                             val downloadUrl = (results[resultIndex] as Uri).toString()
                             resultIndex++
-                            // The first URI (newProfilePicUri) is used for profilePictureUrl
                             if (idx == 0) {
                                 profilePicUrl = downloadUrl
                             } else {

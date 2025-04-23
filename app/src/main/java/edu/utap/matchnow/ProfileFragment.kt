@@ -15,10 +15,8 @@ import edu.utap.matchnow.databinding.FragmentProfileBinding
 class ProfileFragment : Fragment() {
 
     private var _binding: FragmentProfileBinding? = null
-    // Use a safe getter that assumes _binding is non-null only between onCreateView and onDestroyView.
     private val binding get() = _binding!!
 
-    // Get Firestore and current user
     private val firestore = FirebaseFirestore.getInstance()
     private val currentUser = FirebaseAuth.getInstance().currentUser
 
@@ -33,11 +31,9 @@ class ProfileFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Load profile data from Firestore
         currentUser?.let { user ->
             firestore.collection("users").document(user.uid).get()
                 .addOnSuccessListener { document ->
-                    // Make sure the binding is still valid (i.e. view is not destroyed)
                     val safeBinding = _binding ?: return@addOnSuccessListener
 
                     if (document != null && document.exists()) {
@@ -46,12 +42,10 @@ class ProfileFragment : Fragment() {
                         val loveLanguage = document.getString("loveLanguage") ?: "Unknown"
                         val bio = document.getString("bio") ?: "No bio"
                         val location = document.getString("location") ?: "Unknown"
-                        // Retrieve search radius if available
-                        val searchRadius = document.getString("searchRadius") ?: "25"
+                        val searchRadius = document.getLong("searchRadius")?.toInt() ?: 25
                         val profilePictureUrl = document.getString("profilePictureUrl")
-                        val photos = document.get("photos") as? List<String>
+                        val photos = document.get("photos") as? List<*>
 
-                        // Update UI components using safeBinding
                         safeBinding.nameAge.text = "$name, $age"
                         safeBinding.loveLanguage.text = "Love Language: $loveLanguage"
                         safeBinding.bio.text = "\"$bio\""
@@ -59,29 +53,29 @@ class ProfileFragment : Fragment() {
                         safeBinding.searchRadiusText.text = "Searching Within: $searchRadius miles"
                         safeBinding.profileTitle.text = "Your Profile"
 
-                        // Load the profile picture if URL exists
-                        if (!profilePictureUrl.isNullOrEmpty()) {
+                        profilePictureUrl?.takeIf { it.isNotEmpty() }?.let { url ->
                             Glide.with(requireContext())
-                                .load(profilePictureUrl)
+                                .load(url)
                                 .into(safeBinding.profilePicture)
                         }
 
-                        // Load photos if available (using the first three URLs)
-                        photos?.let { photoList ->
-                            if (photoList.isNotEmpty() && photoList[0].isNotEmpty()) {
-                                Glide.with(requireContext())
-                                    .load(photoList[0])
-                                    .into(safeBinding.photo1)
-                            }
-                            if (photoList.size > 1 && photoList[1].isNotEmpty()) {
-                                Glide.with(requireContext())
-                                    .load(photoList[1])
-                                    .into(safeBinding.photo2)
-                            }
-                            if (photoList.size > 2 && photoList[2].isNotEmpty()) {
-                                Glide.with(requireContext())
-                                    .load(photoList[2])
-                                    .into(safeBinding.photo3)
+                        photos?.filterIsInstance<String>()?.let { photoList ->
+                            if (photoList.isNotEmpty()) {
+                                if (photoList.size > 0 && photoList[0].isNotEmpty()) {
+                                    Glide.with(requireContext())
+                                        .load(photoList[0])
+                                        .into(safeBinding.photo1)
+                                }
+                                if (photoList.size > 1 && photoList[1].isNotEmpty()) {
+                                    Glide.with(requireContext())
+                                        .load(photoList[1])
+                                        .into(safeBinding.photo2)
+                                }
+                                if (photoList.size > 2 && photoList[2].isNotEmpty()) {
+                                    Glide.with(requireContext())
+                                        .load(photoList[2])
+                                        .into(safeBinding.photo3)
+                                }
                             }
                         }
                     } else {
@@ -93,7 +87,6 @@ class ProfileFragment : Fragment() {
                 }
         }
 
-        // Logout button: sign out and return to the login screen (MainActivity)
         binding.logoutButton.setOnClickListener {
             FirebaseAuth.getInstance().signOut()
             val intent = Intent(requireContext(), MainActivity::class.java)
@@ -102,7 +95,6 @@ class ProfileFragment : Fragment() {
             requireActivity().finish()
         }
 
-        // Edit Profile button: launch the edit profile activity
         binding.editProfileButton.setOnClickListener {
             val intent = Intent(requireContext(), EditProfileActivity::class.java)
             startActivity(intent)
