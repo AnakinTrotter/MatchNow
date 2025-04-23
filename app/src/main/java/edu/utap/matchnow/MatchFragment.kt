@@ -2,6 +2,7 @@ package edu.utap.matchnow
 
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,8 +11,6 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import edu.utap.matchnow.databinding.FragmentMatchBinding
@@ -39,13 +38,12 @@ class MatchFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         fetchPollOfTheDay()
         fetchPotentialMatches()
     }
 
     private fun fetchPollOfTheDay() {
-        val todayKey = getTodayPollId() // e.g. "poll-2025-04-23"
+        val todayKey = getTodayPollId()
         val pollRef = firestore.collection("polls").document(todayKey)
 
         pollRef.get().addOnSuccessListener { poll ->
@@ -59,18 +57,41 @@ class MatchFragment : Fragment() {
             val options = poll.get("options") as? List<String> ?: return@addOnSuccessListener
             val timestamp = poll.getTimestamp("timestamp") ?: return@addOnSuccessListener
 
-            binding.pollQuestion.text = question
+            val rawResponses = poll.get("responses")
+            val responses: Map<String, List<String>> = when (rawResponses) {
+                is Map<*, *> -> rawResponses.mapNotNull { (key, value) ->
+                    val keyStr = key as? String ?: return@mapNotNull null
+                    val list = (value as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                    keyStr to list
+                }.toMap()
+                else -> emptyMap()
+            }
 
+            val currentUserId = currentUser?.uid ?: return@addOnSuccessListener
             val now = Date()
             val timeDiff = now.time - timestamp.toDate().time
-            val timeLeft = 60 * 60 * 1000 - timeDiff // 1 hour in ms
+            val timeLeft = 60 * 60 * 1000 - timeDiff
+
+            binding.pollQuestion.text = question
+
+            val selectedOption = responses.entries.find { (_, users) ->
+                users.contains(currentUserId)
+            }?.key?.toIntOrNull()
 
             if (timeLeft <= 0) {
                 pollExpired = true
-                showPollExpired()
+                if (selectedOption != null) {
+                    showPollOptions(options, selectedOption, disabled = true)
+                } else {
+                    showPollExpired()
+                }
             } else {
                 startCountdown(timeLeft)
-                showPollOptions(options)
+                if (selectedOption != null) {
+                    showPollOptions(options, selectedOption, disabled = true)
+                } else {
+                    showPollOptions(options)
+                }
             }
         }.addOnFailureListener {
             binding.pollQuestion.text = "Error loading poll."
@@ -85,11 +106,19 @@ class MatchFragment : Fragment() {
         return "poll-%04d-%02d-%02d".format(year, month, day)
     }
 
-    private fun showPollOptions(options: List<String>) {
+    private fun showPollOptions(
+        options: List<String>,
+        selectedOption: Int? = null,
+        disabled: Boolean = false
+    ) {
         binding.pollOptionsContainer.removeAllViews()
         options.forEachIndexed { index, optionText ->
             val button = Button(requireContext()).apply {
                 text = optionText
+                isEnabled = !disabled && selectedOption == null
+                if (selectedOption == index) {
+                    setBackgroundColor(resources.getColor(android.R.color.holo_blue_light))
+                }
                 setOnClickListener {
                     submitPollResponse(index)
                 }
@@ -109,10 +138,44 @@ class MatchFragment : Fragment() {
     private fun submitPollResponse(optionIndex: Int) {
         val userId = currentUser?.uid ?: return
         val pollRef = firestore.collection("polls").document(pollId ?: return)
-        pollRef.update("responses.$optionIndex", FieldValue.arrayUnion(userId))
-        Toast.makeText(requireContext(), "Thanks for voting!", Toast.LENGTH_SHORT).show()
-        showPollExpired()
-        timer?.cancel()
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(pollRef)
+
+            val raw = snapshot.get("responses")
+            Log.d("MatchFragment", "Raw responses = $raw")
+
+            val currentResponses = when (raw) {
+                is Map<*, *> -> raw.mapNotNull { (key, value) ->
+                    val keyStr = key as? String ?: return@mapNotNull null
+                    val list = (value as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                    keyStr to list
+                }.toMap()
+                else -> emptyMap()
+            }
+
+            Log.d("MatchFragment", "Parsed currentResponses = $currentResponses")
+
+            val updatedResponses = mutableMapOf<String, Any>()
+            currentResponses.forEach { (key, users) ->
+                val newUsers = users.filterNot { it == userId }
+                updatedResponses[key] = newUsers
+            }
+
+            val updatedList = (updatedResponses["$optionIndex"] as? List<String>) ?: emptyList()
+            updatedResponses["$optionIndex"] = updatedList + userId
+
+            Log.d("MatchFragment", "Updated responses = $updatedResponses")
+
+            transaction.update(pollRef, "responses", updatedResponses)
+        }.addOnSuccessListener {
+            Toast.makeText(requireContext(), "Thanks for voting!", Toast.LENGTH_SHORT).show()
+            fetchPollOfTheDay()
+            timer?.cancel()
+        }.addOnFailureListener { e ->
+            Log.e("MatchFragment", "Failed to submit vote", e)
+            Toast.makeText(requireContext(), "Failed to submit vote", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun startCountdown(timeLeftMillis: Long) {
@@ -130,18 +193,67 @@ class MatchFragment : Fragment() {
     }
 
     private fun fetchPotentialMatches() {
-        val recycler = binding.matchesRecycler
-        recycler.layoutManager = LinearLayoutManager(requireContext())
-        firestore.collection("users").get().addOnSuccessListener { result ->
-            val users = result.documents.mapNotNull {
-                val name = it.getString("name") ?: return@mapNotNull null
-                val age = it.getLong("age")?.toInt() ?: return@mapNotNull null
-                val profilePic = it.getString("profilePictureUrl") ?: return@mapNotNull null
-                Triple(name, age, profilePic)
+        val currentUserId = currentUser?.uid ?: return
+        val todayPollId = getTodayPollId()
+
+        // Step 1: Get current user's data
+        firestore.collection("users").document(currentUserId).get().addOnSuccessListener { currentUserDoc ->
+            val myLat = currentUserDoc.getDouble("lat") ?: return@addOnSuccessListener
+            val myLng = currentUserDoc.getDouble("lng") ?: return@addOnSuccessListener
+            val searchRadius = currentUserDoc.getLong("searchRadius")?.toInt() ?: 100
+
+            // Step 2: Get current user's poll response
+            firestore.collection("polls").document(todayPollId).get().addOnSuccessListener { pollDoc ->
+                val responses = pollDoc.get("responses") as? Map<String, List<String>> ?: emptyMap()
+
+                val myResponseOption = responses.entries.find { it.value.contains(currentUserId) }?.key
+
+                if (myResponseOption == null) {
+                    binding.matchesRecycler.adapter = MatchesAdapter(emptyList()) // User hasn't voted
+                    return@addOnSuccessListener
+                }
+
+                val matchingUserIds = responses[myResponseOption] ?: emptyList()
+
+                // Step 3: Get all users and filter
+                firestore.collection("users").get().addOnSuccessListener { result ->
+                    val users = result.documents.mapNotNull { doc ->
+                        val uid = doc.id
+                        if (uid == currentUserId) return@mapNotNull null
+                        if (!matchingUserIds.contains(uid)) return@mapNotNull null
+
+                        val name = doc.getString("name") ?: return@mapNotNull null
+                        val age = doc.getLong("age")?.toInt() ?: return@mapNotNull null
+                        val profilePic = doc.getString("profilePictureUrl") ?: return@mapNotNull null
+                        val lat = doc.getDouble("lat") ?: return@mapNotNull null
+                        val lng = doc.getDouble("lng") ?: return@mapNotNull null
+
+                        val distance = haversine(myLat, myLng, lat, lng)
+                        if (distance <= searchRadius) {
+                            Triple(name, age, profilePic)
+                        } else {
+                            null
+                        }
+                    }
+
+                    binding.matchesRecycler.layoutManager = LinearLayoutManager(requireContext())
+                    binding.matchesRecycler.adapter = MatchesAdapter(users)
+                }
             }
-            recycler.adapter = MatchesAdapter(users)
         }
     }
+
+    private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 3958.8 // Radius of Earth in miles
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()
