@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -33,16 +35,35 @@ class EditProfileActivity : AppCompatActivity() {
     private var newPhotoUri2: Uri? = null
     private var newPhotoUri3: Uri? = null
 
-    // ActivityResultLaunchers for image picking
+    // ActivityResultLaunchers for image picking and location selection
     private lateinit var profilePicLauncher: ActivityResultLauncher<Intent>
     private lateinit var photo1Launcher: ActivityResultLauncher<Intent>
     private lateinit var photo2Launcher: ActivityResultLauncher<Intent>
     private lateinit var photo3Launcher: ActivityResultLauncher<Intent>
+    private lateinit var locationPickerLauncher: ActivityResultLauncher<Intent>
+
+    // Predefined list of the 5 love languages
+    private val loveLanguages = listOf(
+        "Words of Affirmation",
+        "Acts of Service",
+        "Receiving Gifts",
+        "Quality Time",
+        "Physical Touch"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityEditProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Set up the love language spinner with the 5 options
+        val adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            loveLanguages
+        )
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerLoveLanguage.adapter = adapter
 
         // Register image pickers with explicit lambda parameter names.
         profilePicLauncher = registerForActivityResult(
@@ -86,15 +107,34 @@ class EditProfileActivity : AppCompatActivity() {
             }
         }
 
+        // Register a launcher for location selection (Map Picker)
+        locationPickerLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                // Expecting the selected address as a String extra "selectedLocation"
+                val selectedLocation = result.data?.getStringExtra("selectedLocation")
+                selectedLocation?.let {
+                    binding.editTextLocation.setText(it)
+                }
+            }
+        }
+
         // Load existing profile data from Firestore (if it exists)
         currentUser?.let {
             userDocRef.get().addOnSuccessListener { document ->
                 if (document.exists()) {
                     binding.editTextName.setText(document.getString("name") ?: "")
                     binding.editTextAge.setText(document.getLong("age")?.toString() ?: "")
-                    binding.editTextLoveLanguage.setText(document.getString("loveLanguage") ?: "")
+                    // Set spinner selection based on stored love language
+                    val storedLoveLanguage = document.getString("loveLanguage") ?: ""
+                    val spinnerPosition = loveLanguages.indexOf(storedLoveLanguage)
+                    if (spinnerPosition >= 0) {
+                        binding.spinnerLoveLanguage.setSelection(spinnerPosition)
+                    }
                     binding.editTextBio.setText(document.getString("bio") ?: "")
                     binding.editTextLocation.setText(document.getString("location") ?: "")
+                    binding.editTextSearchRadius.setText(document.getString("searchRadius") ?: "")
 
                     val profilePicUrl = document.getString("profilePictureUrl")
                     val photos = document.get("photos") as? List<*>
@@ -121,6 +161,13 @@ class EditProfileActivity : AppCompatActivity() {
         binding.photo2.setOnClickListener { launchImagePicker(photo2Launcher) }
         binding.photo3.setOnClickListener { launchImagePicker(photo3Launcher) }
 
+        // Set click listener for selecting location on map
+        binding.selectLocationButton.setOnClickListener {
+            // Launch the MapPickerActivity
+            val intent = Intent(this, MapPickerActivity::class.java)
+            locationPickerLauncher.launch(intent)
+        }
+
         // Save Changes button: update Firestore and Storage
         binding.saveChangesButton.setOnClickListener { saveProfile() }
     }
@@ -134,19 +181,33 @@ class EditProfileActivity : AppCompatActivity() {
     private fun saveProfile() {
         binding.saveChangesButton.isEnabled = false
 
-        // Gather inputs
+        // Gather and validate inputs
         val name = binding.editTextName.text.toString().trim()
         val age = binding.editTextAge.text.toString().toIntOrNull() ?: 0
-        val loveLanguage = binding.editTextLoveLanguage.text.toString().trim()
+        if (age < 18) {
+            Toast.makeText(this, "Age must be at least 18", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
+        // Get love language from spinner selection.
+        val loveLanguage = binding.spinnerLoveLanguage.selectedItem.toString()
         val bio = binding.editTextBio.text.toString().trim()
         val location = binding.editTextLocation.text.toString().trim()
+        val searchRadius = binding.editTextSearchRadius.text.toString().trim()
+
+        if (searchRadius < 1) {
+            Toast.makeText(this, "Search Radius must be a positive number", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
 
         val updates = hashMapOf<String, Any>(
             "name" to name,
             "age" to age,
             "loveLanguage" to loveLanguage,
             "bio" to bio,
-            "location" to location
+            "location" to location,
+            "searchRadius" to searchRadius
         )
 
         // Prepare image upload tasks if any new images have been selected.

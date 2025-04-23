@@ -42,6 +42,8 @@ class ProfileFragment : Fragment() {
                         val loveLanguage = document.getString("loveLanguage") ?: "Unknown"
                         val bio = document.getString("bio") ?: "No bio"
                         val location = document.getString("location") ?: "Unknown"
+                        // Retrieve search radius if available
+                        val searchRadius = document.getString("searchRadius") ?: "25"
                         val profilePictureUrl = document.getString("profilePictureUrl")
                         val photos = document.get("photos") as? List<String>
 
@@ -50,6 +52,7 @@ class ProfileFragment : Fragment() {
                         binding.loveLanguage.text = "Love Language: $loveLanguage"
                         binding.bio.text = "\"$bio\""
                         binding.locationText.text = "Location: $location"
+                        binding.searchRadiusText.text = "Searching Within: $searchRadius miles"
                         binding.profileTitle.text = "Your Profile"
 
                         // Load the profile picture if URL exists
@@ -97,9 +100,8 @@ class ProfileFragment : Fragment() {
             requireActivity().finish()
         }
 
-        // Stub for Edit Profile button (implement navigation to an edit screen if needed)
+        // Edit Profile button: launch the edit profile activity
         binding.editProfileButton.setOnClickListener {
-            // Launch the edit profile activity
             val intent = Intent(requireContext(), EditProfileActivity::class.java)
             startActivity(intent)
         }

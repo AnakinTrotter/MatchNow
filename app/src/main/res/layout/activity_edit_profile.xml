@@ -48,35 +48,58 @@
             android:layout_height="wrap_content"
             android:hint="Name" />
 
-        <!-- Age -->
+        <!-- Age (18+) -->
         <EditText
             android:id="@+id/editTextAge"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Age"
+            android:hint="Age (18+)"
             android:inputType="number" />
 
-        <!-- Love Language -->
-        <EditText
-            android:id="@+id/editTextLoveLanguage"
+        <!-- Love Language Spinner -->
+        <Spinner
+            android:id="@+id/spinnerLoveLanguage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Love Language" />
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
 
-        <!-- Bio -->
+        <!-- Bio with max 200 characters -->
         <EditText
             android:id="@+id/editTextBio"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Bio"
+            android:maxLength="200"
             android:inputType="textMultiLine" />
 
-        <!-- Location -->
-        <EditText
-            android:id="@+id/editTextLocation"
+        <!-- Location field with Map selection -->
+        <LinearLayout
+            android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="City, State" />
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+            <EditText
+                android:id="@+id/editTextLocation"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="City, State, Zip" />
+            <Button
+                android:id="@+id/selectLocationButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Select on Map" />
+        </LinearLayout>
+
+        <!-- Search Radius -->
+        <EditText
+            android:id="@+id/editTextSearchRadius"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Search Radius (miles)"
+            android:inputType="number" />
 
         <!-- Guidance for Photos -->
         <TextView
