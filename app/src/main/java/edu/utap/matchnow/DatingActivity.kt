@@ -18,12 +18,18 @@ class DatingActivity : AppCompatActivity() {
 
         // Load the default fragment (ChatFragment) into the container.
         supportFragmentManager.commit {
-            replace(R.id.fragmentContainer, ChatFragment())
+            replace(R.id.fragmentContainer, MatchFragment())
         }
 
         // Switch fragments based on bottom nav selections.
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
+                R.id.match -> {
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragmentContainer, MatchFragment())
+                        .commit()
+                    true
+                }
                 R.id.chat -> {
                     supportFragmentManager.commit {
                         replace(R.id.fragmentContainer, ChatFragment())
