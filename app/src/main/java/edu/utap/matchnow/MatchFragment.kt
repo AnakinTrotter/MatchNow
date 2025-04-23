@@ -209,7 +209,7 @@ class MatchFragment : Fragment() {
                 val myResponseOption = responses.entries.find { it.value.contains(currentUserId) }?.key
 
                 if (myResponseOption == null) {
-                    binding.matchesRecycler.adapter = MatchesAdapter(emptyList()) // User hasn't voted
+                    binding.matchesRecycler.adapter = MatchesAdapter(emptyList(), emptyList())
                     return@addOnSuccessListener
                 }
 
@@ -217,7 +217,7 @@ class MatchFragment : Fragment() {
 
                 // Step 3: Get all users and filter
                 firestore.collection("users").get().addOnSuccessListener { result ->
-                    val users = result.documents.mapNotNull { doc ->
+                    val filtered = result.documents.mapNotNull { doc ->
                         val uid = doc.id
                         if (uid == currentUserId) return@mapNotNull null
                         if (!matchingUserIds.contains(uid)) return@mapNotNull null
@@ -230,14 +230,16 @@ class MatchFragment : Fragment() {
 
                         val distance = haversine(myLat, myLng, lat, lng)
                         if (distance <= searchRadius) {
-                            Triple(name, age, profilePic)
+                            (Triple(name, age, profilePic) to uid)
                         } else {
                             null
                         }
                     }
 
+                    val (userData, userIds) = filtered.unzip()
+
                     binding.matchesRecycler.layoutManager = LinearLayoutManager(requireContext())
-                    binding.matchesRecycler.adapter = MatchesAdapter(users)
+                    binding.matchesRecycler.adapter = MatchesAdapter(userData, userIds)
                 }
             }
         }
@@ -261,8 +263,10 @@ class MatchFragment : Fragment() {
         _binding = null
     }
 
-    class MatchesAdapter(private val data: List<Triple<String, Int, String>>) :
-        RecyclerView.Adapter<MatchesAdapter.MatchViewHolder>() {
+    class MatchesAdapter(
+        private val data: List<Triple<String, Int, String>>,
+        private val userIds: List<String>
+    ) : RecyclerView.Adapter<MatchesAdapter.MatchViewHolder>() {
 
         class MatchViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val imageView: ImageView = view.findViewById(R.id.matchImage)
@@ -279,8 +283,22 @@ class MatchFragment : Fragment() {
             val (name, age, photoUrl) = data[position]
             holder.nameAgeView.text = "$name, $age"
             Glide.with(holder.imageView.context).load(photoUrl).into(holder.imageView)
+
+            holder.itemView.setOnClickListener {
+                val fragment = MatchProfileFragment().apply {
+                    arguments = Bundle().apply {
+                        putString("userId", userIds[position])
+                    }
+                }
+                (holder.itemView.context as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager
+                    ?.beginTransaction()
+                    ?.replace(R.id.fragmentContainer, fragment)
+                    ?.addToBackStack(null)
+                    ?.commit()
+            }
         }
 
         override fun getItemCount() = data.size
     }
+
 }
