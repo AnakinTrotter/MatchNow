@@ -305,6 +305,7 @@ class EditProfileActivity : AppCompatActivity() {
             updates["photos"] = existingPhotoUrls
             userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
                 binding.saveChangesButton.isEnabled = true
+                setResult(Activity.RESULT_OK)
                 finish()
             }
         } else {
@@ -361,6 +362,7 @@ class EditProfileActivity : AppCompatActivity() {
 
                     userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
                         binding.saveChangesButton.isEnabled = true
+                        setResult(Activity.RESULT_OK)
                         finish()
                     }
                 }
