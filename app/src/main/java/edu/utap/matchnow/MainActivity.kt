@@ -1,5 +1,6 @@
 package edu.utap.matchnow
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -18,48 +19,32 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Clear the display name edit text if first time
-        if (savedInstanceState == null) {
-            binding.displayNameET.text.clear()
-        }
-
-        // Logout button
-        binding.logoutBut.setOnClickListener {
-            // XXX Write me
-            authUser.logout()
-        }
-
-        // Login button
-        // If the user spam-clicks, we only want to initiate one login
-        binding.loginBut.setOnClickListener {
-            // XXX Write me
+        // Handle login button click
+        binding.loginButton.setOnClickListener {
+            Log.d(TAG, "Login button clicked")
             authUser.login()
         }
 
-        // Set display name button
-        binding.setDisplayName.setOnClickListener {
-            // XXX Write me
-            val displayName = binding.displayNameET.text.toString()
-            if (displayName.isNotEmpty()) {
-                authUser.setDisplayName(displayName)
-            }
+        // Handle sign up button click (for simplicity, call login)
+        binding.signUpButton.setOnClickListener {
+            Log.d(TAG, "Sign Up button clicked")
+            authUser.login()
         }
     }
 
     override fun onStart() {
         super.onStart()
-        // Initialize AuthUser, observe data to display in UI
-        // https://developer.android.com/reference/androidx/lifecycle/Lifecycle#addObserver(androidx.lifecycle.LifecycleObserver)
-        // XXX Write me
         authUser = AuthUser(activityResultRegistry)
         lifecycle.addObserver(authUser)
 
-        // Observe the live user data and update UI accordingly
+        // Observe the user; if authenticated, navigate to DatingActivity.
         authUser.observeUser().observe(this) { user ->
             Log.d(TAG, "Observed user: $user")
-            binding.displayName.text = user.name
-            binding.userEmail.text = user.email
-            binding.userUid.text = user.uid
+            if (!user.isInvalid()) {
+                val intent = Intent(this, DatingActivity::class.java)
+                startActivity(intent)
+                finish() // Prevent navigating back to login
+            }
         }
     }
 }

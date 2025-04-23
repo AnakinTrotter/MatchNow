@@ -55,4 +55,7 @@ dependencies {
 
     // viewModels
     implementation 'androidx.fragment:fragment-ktx:1.8.6'
+
+    // Android Maps
+    implementation 'com.google.android.gms:play-services-maps:19.1.0'
 }

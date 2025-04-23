@@ -1,3 +1,6 @@
 <resources>
-    <string name="app_name">FirebaseAuth</string>
+    <string name="app_name">MatchNow</string>
+    <string name="compass_icon">Compass Icon</string>
+    <string name="log_in">Log In</string>
+    <string name="sign_up">Sign Up</string>
 </resources>

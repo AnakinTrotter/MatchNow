@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+   TODO: Before you run your application, you need a Google Maps API key.
+
+   Follow the directions here:
+   https://developers.google.com/maps/documentation/android/start#get-key
+
+   Once you have your key (it starts with "AIza"), place it in the string resource.
+   -->
+    <string name="google_maps_key" templateMergeStrategy="preserve" translatable="false">
+        <!-- Please get your own API key from Google and copy it here. -->
+        <!-- See above directions and course videos -->
+        AIzaSyCOKtqOqB-HxQXA-9gPzKNVmVNzSyqP6Tk
+    </string>
+</resources>
