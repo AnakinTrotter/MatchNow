@@ -14,6 +14,7 @@ import com.bumptech.glide.Glide
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import edu.utap.matchnow.databinding.FragmentChatBinding
+import java.util.*
 
 class ChatFragment : Fragment() {
 
@@ -37,33 +38,78 @@ class ChatFragment : Fragment() {
         loadChats()
     }
 
-    private fun loadChats() {
-        val uid = currentUserId ?: return
-        firestore.collection("chats")
-            .whereArrayContains("users", uid)
-            .orderBy("lastUpdated")
-            .get()
-            .addOnSuccessListener { result ->
-                if (result.isEmpty) {
-                    binding.emptyText.visibility = View.VISIBLE
-                    binding.chatRecycler.visibility = View.GONE
-                    return@addOnSuccessListener
-                }
-
-                val chats = result.documents.mapNotNull { doc ->
-                    val otherId = (doc.get("users") as? List<*>)?.filterIsInstance<String>()?.firstOrNull { it != uid }
-                    val lastMessage = doc.getString("lastMessage") ?: ""
-                    if (otherId == null) return@mapNotNull null
-                    Triple(doc.id, otherId, lastMessage)
-                }
-
-                binding.chatRecycler.adapter = ChatListAdapter(chats)
-                binding.emptyText.visibility = View.GONE
-                binding.chatRecycler.visibility = View.VISIBLE
-            }
+    private fun createChatId(uid1: String, uid2: String): String {
+        return listOf(uid1, uid2).sortedDescending().joinToString("-")
     }
 
-    inner class ChatListAdapter(private val chats: List<Triple<String, String, String>>) :
+    private fun loadChats() {
+        val uid = currentUserId ?: return
+        println("🔥 loadChats() - currentUserId: $uid")
+
+        firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
+            val chatPartners = userDoc.get("chatsWith") as? List<*> ?: emptyList<Any>()
+            if (chatPartners.isEmpty()) {
+                println("⚠️ No chatsWith list")
+                binding.emptyText.visibility = View.VISIBLE
+                binding.chatRecycler.visibility = View.GONE
+                return@addOnSuccessListener
+            }
+
+            val chatList = mutableListOf<ChatDisplayInfo>()
+            var loadedCount = 0
+
+            for (otherIdAny in chatPartners) {
+                val otherId = otherIdAny as? String ?: continue
+                val chatId = createChatId(uid, otherId)
+                val chatRef = firestore.collection("chats").document(chatId)
+
+                chatRef.get().addOnSuccessListener { chatDoc ->
+                    val lastMessage = chatDoc.getString("lastMessage") ?: ""
+                    val lastUpdated = chatDoc.getTimestamp("lastUpdated")?.toDate() ?: Date(0)
+
+                    firestore.collection("users").document(otherId).get().addOnSuccessListener { userDoc ->
+                        val name = userDoc.getString("name") ?: "Unknown"
+                        val profilePic = userDoc.getString("profilePictureUrl")
+                        chatList.add(
+                            ChatDisplayInfo(
+                                chatId = chatId,
+                                otherUserId = otherId,
+                                otherUserName = name,
+                                lastMessage = lastMessage,
+                                profilePictureUrl = profilePic,
+                                lastUpdated = lastUpdated
+                            )
+                        )
+                        loadedCount++
+                        if (loadedCount == chatPartners.size) {
+                            chatList.sortByDescending { it.lastUpdated }
+                            binding.chatRecycler.adapter = ChatListAdapter(chatList)
+                            binding.emptyText.visibility = View.GONE
+                            binding.chatRecycler.visibility = View.VISIBLE
+                        }
+                    }
+                }.addOnFailureListener {
+                    println("❌ Failed to load chat $chatId")
+                    loadedCount++
+                }
+            }
+        }.addOnFailureListener {
+            println("❌ Failed to load user document for $uid: ${it.message}")
+            binding.emptyText.visibility = View.VISIBLE
+            binding.chatRecycler.visibility = View.GONE
+        }
+    }
+
+    data class ChatDisplayInfo(
+        val chatId: String,
+        val otherUserId: String,
+        val otherUserName: String,
+        val lastMessage: String,
+        val profilePictureUrl: String?,
+        val lastUpdated: Date
+    )
+
+    inner class ChatListAdapter(private val chats: List<ChatDisplayInfo>) :
         RecyclerView.Adapter<ChatListAdapter.ChatViewHolder>() {
 
         inner class ChatViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -79,24 +125,25 @@ class ChatFragment : Fragment() {
         }
 
         override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
-            val (chatId, otherId, lastMsg) = chats[position]
-            firestore.collection("users").document(otherId).get().addOnSuccessListener { user ->
-                val name = user.getString("name") ?: "Unknown"
-                val pic = user.getString("profilePictureUrl")
-                holder.nameView.text = name
-                holder.messageView.text = lastMsg
-                Glide.with(holder.imageView.context).load(pic).into(holder.imageView)
+            val chat = chats[position]
+            holder.nameView.text = chat.otherUserName
+            holder.messageView.text = chat.lastMessage
+            Glide.with(holder.imageView.context).load(chat.profilePictureUrl).into(holder.imageView)
 
-                holder.itemView.setOnClickListener {
-                    val fragment = ChatMessageFragment.newInstance(chatId, otherId, name)
-                    requireActivity().supportFragmentManager.beginTransaction()
-                        .replace(R.id.fragmentContainer, fragment)
-                        .addToBackStack(null)
-                        .commit()
-                }
+            holder.itemView.setOnClickListener {
+                val fragment = ChatMessageFragment.newInstance(chat.chatId, chat.otherUserId, chat.otherUserName)
+                requireActivity().supportFragmentManager.beginTransaction()
+                    .replace(R.id.fragmentContainer, fragment)
+                    .addToBackStack(null)
+                    .commit()
             }
         }
 
         override fun getItemCount() = chats.size
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

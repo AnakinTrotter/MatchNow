@@ -119,7 +119,9 @@ class ChatMessageFragment : Fragment() {
         }
 
         back.setOnClickListener {
-            requireActivity().supportFragmentManager.popBackStack()
+            requireActivity().supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, ChatFragment())
+                .commit()
         }
     }
 

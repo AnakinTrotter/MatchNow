@@ -93,7 +93,7 @@ class MatchProfileFragment : Fragment() {
     }
 
     private fun createChatId(uid1: String, uid2: String): String {
-        return listOf(uid1, uid2).sorted().joinToString("-")
+        return listOf(uid1, uid2).sortedDescending().joinToString("-")
     }
 
     private fun startOrOpenChat(uid1: String, uid2: String) {
@@ -102,24 +102,30 @@ class MatchProfileFragment : Fragment() {
 
         chatRef.get().addOnSuccessListener { doc ->
             if (!doc.exists()) {
-                // Step 1: Create chat doc
-                chatRef.set(
-                    mapOf(
-                        "users" to listOf(uid1, uid2),
-                        "lastMessage" to "Started chat",
-                        "lastUpdated" to Timestamp.now()
-                    )
-                ).addOnSuccessListener {
-                    // Step 2: Add init message
+                val now = Timestamp.now()
+                val chatData = mapOf(
+                    "users" to listOf(uid1, uid2),
+                    "lastMessage" to "Started chat",
+                    "lastUpdated" to now
+                )
+
+                val userRef1 = firestore.collection("users").document(uid1)
+                val userRef2 = firestore.collection("users").document(uid2)
+
+                val batch = firestore.batch()
+                batch.set(chatRef, chatData)
+                batch.update(userRef1, "chatsWith", FieldValue.arrayUnion(uid2))
+                batch.update(userRef2, "chatsWith", FieldValue.arrayUnion(uid1))
+
+                batch.commit().addOnSuccessListener {
                     chatRef.collection("messages").document("init").set(
                         mapOf(
                             "from" to uid1,
                             "to" to uid2,
                             "message" to "Started chat",
-                            "timestamp" to Timestamp.now()
+                            "timestamp" to now
                         )
                     ).addOnSuccessListener {
-                        // Step 3: Navigate to chat
                         navigateToChat(chatId, uid2)
                     }.addOnFailureListener {
                         Toast.makeText(requireContext(), "Failed to write initial message", Toast.LENGTH_SHORT).show()
@@ -130,7 +136,6 @@ class MatchProfileFragment : Fragment() {
                     it.printStackTrace()
                 }
             } else {
-                // Chat exists, just open it
                 navigateToChat(chatId, uid2)
             }
         }.addOnFailureListener {
@@ -138,7 +143,6 @@ class MatchProfileFragment : Fragment() {
             it.printStackTrace()
         }
     }
-
 
     private fun navigateToChat(chatId: String, otherUserId: String) {
         firestore.collection("users").document(otherUserId).get()
