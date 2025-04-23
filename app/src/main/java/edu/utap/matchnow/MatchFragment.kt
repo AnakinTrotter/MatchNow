@@ -196,16 +196,14 @@ class MatchFragment : Fragment() {
         val currentUserId = currentUser?.uid ?: return
         val todayPollId = getTodayPollId()
 
-        // Step 1: Get current user's data
         firestore.collection("users").document(currentUserId).get().addOnSuccessListener { currentUserDoc ->
             val myLat = currentUserDoc.getDouble("lat") ?: return@addOnSuccessListener
             val myLng = currentUserDoc.getDouble("lng") ?: return@addOnSuccessListener
             val searchRadius = currentUserDoc.getLong("searchRadius")?.toInt() ?: 100
+            val myMatches = currentUserDoc.get("matches") as? List<String> ?: emptyList()
 
-            // Step 2: Get current user's poll response
             firestore.collection("polls").document(todayPollId).get().addOnSuccessListener { pollDoc ->
                 val responses = pollDoc.get("responses") as? Map<String, List<String>> ?: emptyMap()
-
                 val myResponseOption = responses.entries.find { it.value.contains(currentUserId) }?.key
 
                 if (myResponseOption == null) {
@@ -215,31 +213,40 @@ class MatchFragment : Fragment() {
 
                 val matchingUserIds = responses[myResponseOption] ?: emptyList()
 
-                // Step 3: Get all users and filter
                 firestore.collection("users").get().addOnSuccessListener { result ->
-                    val filtered = result.documents.mapNotNull { doc ->
-                        val uid = doc.id
-                        if (uid == currentUserId) return@mapNotNull null
-                        if (!matchingUserIds.contains(uid)) return@mapNotNull null
+                    val confirmed = mutableListOf<Pair<Triple<String, Int, String>, String>>()
+                    val potential = mutableListOf<Pair<Triple<String, Int, String>, String>>()
 
-                        val name = doc.getString("name") ?: return@mapNotNull null
-                        val age = doc.getLong("age")?.toInt() ?: return@mapNotNull null
-                        val profilePic = doc.getString("profilePictureUrl") ?: return@mapNotNull null
-                        val lat = doc.getDouble("lat") ?: return@mapNotNull null
-                        val lng = doc.getDouble("lng") ?: return@mapNotNull null
+                    result.documents.forEach { doc ->
+                        val uid = doc.id
+                        if (uid == currentUserId) return@forEach
+                        if (!matchingUserIds.contains(uid)) return@forEach
+
+                        val name = doc.getString("name") ?: return@forEach
+                        val age = doc.getLong("age")?.toInt() ?: return@forEach
+                        val profilePic = doc.getString("profilePictureUrl") ?: return@forEach
+                        val lat = doc.getDouble("lat") ?: return@forEach
+                        val lng = doc.getDouble("lng") ?: return@forEach
 
                         val distance = haversine(myLat, myLng, lat, lng)
-                        if (distance <= searchRadius) {
-                            (Triple(name, age, profilePic) to uid)
+                        if (distance > searchRadius) return@forEach
+
+                        val userInfo = Triple(name, age, profilePic)
+                        if (uid in myMatches) {
+                            confirmed.add(userInfo to uid)
                         } else {
-                            null
+                            potential.add(userInfo to uid)
                         }
                     }
 
-                    val (userData, userIds) = filtered.unzip()
+                    val (confirmedProfiles, confirmedIds) = confirmed.unzip()
+                    val (potentialProfiles, potentialIds) = potential.unzip()
+
+                    binding.confirmedMatchesRecycler.layoutManager = LinearLayoutManager(requireContext())
+                    binding.confirmedMatchesRecycler.adapter = MatchesAdapter(confirmedProfiles, confirmedIds)
 
                     binding.matchesRecycler.layoutManager = LinearLayoutManager(requireContext())
-                    binding.matchesRecycler.adapter = MatchesAdapter(userData, userIds)
+                    binding.matchesRecycler.adapter = MatchesAdapter(potentialProfiles, potentialIds)
                 }
             }
         }

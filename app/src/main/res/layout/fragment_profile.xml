@@ -8,14 +8,13 @@
     android:layout_marginTop="?attr/actionBarSize">
 
     <LinearLayout
+        android:id="@+id/profileContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center_horizontal"
         android:padding="16dp">
 
-        <!-- Profile Title -->
-        <!-- User Name and Age -->
         <TextView
             android:id="@+id/nameAge"
             android:layout_width="wrap_content"
@@ -25,7 +24,6 @@
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
 
-        <!-- Circular Profile Picture -->
         <ImageView
             android:id="@+id/profilePicture"
             android:layout_width="120dp"
@@ -36,7 +34,6 @@
             android:background="@drawable/circle_background"
             android:clipToOutline="true" />
 
-        <!-- User Bio in Quotes -->
         <TextView
             android:id="@+id/bio"
             android:layout_width="wrap_content"
@@ -44,7 +41,7 @@
             android:text="&quot;Coffee lover and museum enthusiast.&quot;"
             android:textSize="16sp"
             android:layout_marginBottom="16dp" />
-        <!-- Love Language -->
+
         <TextView
             android:id="@+id/loveLanguage"
             android:layout_width="wrap_content"
@@ -53,7 +50,6 @@
             android:textSize="16sp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Location Text -->
         <TextView
             android:id="@+id/locationText"
             android:layout_width="wrap_content"
@@ -62,7 +58,6 @@
             android:textSize="16sp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Search Radius Text -->
         <TextView
             android:id="@+id/searchRadiusText"
             android:layout_width="wrap_content"
@@ -71,7 +66,6 @@
             android:textSize="16sp"
             android:layout_marginBottom="16dp" />
 
-        <!-- Edit Profile Button -->
         <Button
             android:id="@+id/editProfileButton"
             android:layout_width="wrap_content"
@@ -79,7 +73,6 @@
             android:text="Edit Profile"
             android:layout_marginBottom="24dp" />
 
-        <!-- User Photos: Three square photos stacked vertically -->
         <LinearLayout
             android:id="@+id/photosContainer"
             android:layout_width="match_parent"
@@ -116,7 +109,6 @@
                 android:background="@drawable/rounded_rect_background" />
         </LinearLayout>
 
-        <!-- Logout Button -->
         <Button
             android:id="@+id/logoutButton"
             android:layout_width="wrap_content"
