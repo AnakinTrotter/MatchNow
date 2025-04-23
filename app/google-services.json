@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "455325752412",
+    "project_id": "fc6firebaseauth-27f47",
+    "storage_bucket": "fc6firebaseauth-27f47.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:455325752412:android:9f4f4b0bab9a37a180da99",
+        "android_client_info": {
+          "package_name": "edu.utap.firebaseauth"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYpvS5yzQchy994Lv-c-yzV-kGAn6LYFg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
