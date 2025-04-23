@@ -44,12 +44,10 @@ class ChatFragment : Fragment() {
 
     private fun loadChats() {
         val uid = currentUserId ?: return
-        println("🔥 loadChats() - currentUserId: $uid")
 
         firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
             val chatPartners = userDoc.get("chatsWith") as? List<*> ?: emptyList<Any>()
             if (chatPartners.isEmpty()) {
-                println("⚠️ No chatsWith list")
                 binding.emptyText.visibility = View.VISIBLE
                 binding.chatRecycler.visibility = View.GONE
                 return@addOnSuccessListener
@@ -89,12 +87,10 @@ class ChatFragment : Fragment() {
                         }
                     }
                 }.addOnFailureListener {
-                    println("❌ Failed to load chat $chatId")
                     loadedCount++
                 }
             }
         }.addOnFailureListener {
-            println("❌ Failed to load user document for $uid: ${it.message}")
             binding.emptyText.visibility = View.VISIBLE
             binding.chatRecycler.visibility = View.GONE
         }

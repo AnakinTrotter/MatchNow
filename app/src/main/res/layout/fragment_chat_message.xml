@@ -4,32 +4,36 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingVertical="42sp">
+    android:paddingTop="48sp"
+    android:background="@android:color/white">
 
-    <!-- Header with back button and name -->
-    <LinearLayout
-        android:orientation="horizontal"
+    <!-- Header -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="12dp">
+        android:padding="12dp"
+        android:background="@color/purple_500">
 
         <ImageButton
             android:id="@+id/backButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentStart="true"
+            android:background="@drawable/round_button_dark"
             android:src="@android:drawable/ic_menu_revert"
+            android:tint="@android:color/white"
             android:contentDescription="Back" />
 
         <TextView
             android:id="@+id/chatTitle"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Chat"
+            android:textColor="@android:color/white"
             android:textStyle="bold"
-            android:textSize="18sp"
-            android:gravity="center"
-            android:layout_marginStart="8dp" />
-    </LinearLayout>
+            android:textSize="20sp"
+            android:layout_centerInParent="true" />
+    </RelativeLayout>
 
     <!-- Messages -->
     <androidx.recyclerview.widget.RecyclerView
@@ -37,26 +41,34 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="12dp" />
+        android:padding="12dp"
+        android:clipToPadding="false" />
 
     <!-- Message input -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="8dp">
+        android:padding="8dp"
+        android:gravity="center_vertical">
 
         <EditText
             android:id="@+id/messageInput"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Type a message..." />
+            android:hint="Type a message..."
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textSize="16sp" />
 
         <ImageButton
             android:id="@+id/sendButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/round_button_dark"
+            android:tint="@android:color/white"
             android:src="@android:drawable/ic_menu_send"
             android:contentDescription="Send" />
     </LinearLayout>
