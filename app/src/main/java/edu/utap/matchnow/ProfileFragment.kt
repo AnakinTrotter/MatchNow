@@ -99,7 +99,9 @@ class ProfileFragment : Fragment() {
 
         // Stub for Edit Profile button (implement navigation to an edit screen if needed)
         binding.editProfileButton.setOnClickListener {
-            // TODO: Navigate to EditProfileActivity (not implemented yet)
+            // Launch the edit profile activity
+            val intent = Intent(requireContext(), EditProfileActivity::class.java)
+            startActivity(intent)
         }
     }
 

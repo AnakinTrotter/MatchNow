@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:padding="16dp">
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/editProfileTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Edit Profile"
+            android:textStyle="bold"
+            android:textSize="24sp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Profile Picture with Guidance -->
+        <ImageView
+            android:id="@+id/profilePicture"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:src="@drawable/profile_placeholder"
+            android:scaleType="centerCrop"
+            android:background="@drawable/circle_background"
+            android:clipToOutline="true"
+            android:layout_marginBottom="8dp" />
+        <TextView
+            android:id="@+id/profilePictureGuidance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tap to change your profile picture. Best images are squares with you clearly centered."
+            android:textSize="14sp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Name -->
+        <EditText
+            android:id="@+id/editTextName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Name" />
+
+        <!-- Age -->
+        <EditText
+            android:id="@+id/editTextAge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Age"
+            android:inputType="number" />
+
+        <!-- Love Language -->
+        <EditText
+            android:id="@+id/editTextLoveLanguage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Love Language" />
+
+        <!-- Bio -->
+        <EditText
+            android:id="@+id/editTextBio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Bio"
+            android:inputType="textMultiLine" />
+
+        <!-- Location -->
+        <EditText
+            android:id="@+id/editTextLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="City, State" />
+
+        <!-- Guidance for Photos -->
+        <TextView
+            android:id="@+id/photoGuidance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="For photo uploads, best images are squares where we can see you clearly in the center."
+            android:textSize="14sp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Photo 1 -->
+        <ImageView
+            android:id="@+id/photo1"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:src="@drawable/photo_placeholder"
+            android:scaleType="centerCrop"
+            android:background="@drawable/rounded_rect_background"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Photo 2 -->
+        <ImageView
+            android:id="@+id/photo2"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:src="@drawable/photo_placeholder"
+            android:scaleType="centerCrop"
+            android:background="@drawable/rounded_rect_background"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Photo 3 -->
+        <ImageView
+            android:id="@+id/photo3"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:src="@drawable/photo_placeholder"
+            android:scaleType="centerCrop"
+            android:background="@drawable/rounded_rect_background"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Save Changes Button -->
+        <Button
+            android:id="@+id/saveChangesButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Save Changes"
+            android:layout_marginTop="24dp" />
+
+    </LinearLayout>
+</ScrollView>
