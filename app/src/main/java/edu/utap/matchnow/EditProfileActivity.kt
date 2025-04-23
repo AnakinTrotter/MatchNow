@@ -29,20 +29,20 @@ class EditProfileActivity : AppCompatActivity() {
     private val currentUser = FirebaseAuth.getInstance().currentUser
     private val userDocRef get() = firestore.collection("users").document(currentUser!!.uid)
 
-    // Local URIs for new images.
+    // Local URIs for newly selected images
     private var newProfilePicUri: Uri? = null
     private var newPhotoUri1: Uri? = null
     private var newPhotoUri2: Uri? = null
     private var newPhotoUri3: Uri? = null
 
-    // ActivityResultLaunchers for image picking and location selection.
+    // ActivityResultLaunchers for image picking and location selection
     private lateinit var profilePicLauncher: ActivityResultLauncher<Intent>
     private lateinit var photo1Launcher: ActivityResultLauncher<Intent>
     private lateinit var photo2Launcher: ActivityResultLauncher<Intent>
     private lateinit var photo3Launcher: ActivityResultLauncher<Intent>
     private lateinit var locationPickerLauncher: ActivityResultLauncher<Intent>
 
-    // Predefined list of the 5 love languages.
+    // Predefined list of love languages
     private val loveLanguages = listOf(
         "Words of Affirmation",
         "Acts of Service",
@@ -51,22 +51,28 @@ class EditProfileActivity : AppCompatActivity() {
         "Physical Touch"
     )
 
-    // New variables to hold the selected location coordinates.
+    // Variables to hold the selected location coordinates
     private var selectedLat: Double? = null
     private var selectedLng: Double? = null
 
+    // Store existing data from Firestore (to avoid forcing user to re-upload/ reselect if it’s already set)
+    private var existingProfilePicUrl: String? = null
+    private var existingPhotoUrls = mutableListOf<String>()
+    private var existingLat: Double? = null
+    private var existingLng: Double? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Hide the app bar for a full-screen experience.
+        // Hide the app bar for a full-screen experience
         supportActionBar?.hide()
         binding = ActivityEditProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Disable manual typing in the location EditText.
+        // Disable manual typing in the location EditText
         binding.editTextLocation.isFocusable = false
         binding.editTextLocation.isClickable = true
 
-        // Set up the love language spinner.
+        // Set up the love language spinner
         val adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_item,
@@ -75,7 +81,7 @@ class EditProfileActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerLoveLanguage.adapter = adapter
 
-        // Register image pickers.
+        // Register image pickers
         profilePicLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -117,13 +123,11 @@ class EditProfileActivity : AppCompatActivity() {
             }
         }
 
-        // Register the location picker launcher.
+        // Register the location picker launcher
         locationPickerLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                // Expect the returned location string (city, state)
-                // along with selectedLat and selectedLng from MapPickerActivity.
                 val selectedLocation = result.data?.getStringExtra("selectedLocation")
                 val lat = result.data?.getDoubleExtra("selectedLat", 0.0)
                 val lng = result.data?.getDoubleExtra("selectedLng", 0.0)
@@ -135,52 +139,70 @@ class EditProfileActivity : AppCompatActivity() {
             }
         }
 
-        // Load existing profile data from Firestore.
+        // Load existing profile data from Firestore
         currentUser?.let {
             userDocRef.get().addOnSuccessListener { document ->
                 if (document.exists()) {
                     binding.editTextName.setText(document.getString("name") ?: "")
                     binding.editTextAge.setText(document.getLong("age")?.toString() ?: "")
+
                     val storedLoveLanguage = document.getString("loveLanguage") ?: ""
                     val spinnerPosition = loveLanguages.indexOf(storedLoveLanguage)
                     if (spinnerPosition >= 0) {
                         binding.spinnerLoveLanguage.setSelection(spinnerPosition)
                     }
+
                     binding.editTextBio.setText(document.getString("bio") ?: "")
-                    binding.editTextLocation.setText(document.getString("location") ?: "")
+
+                    val firestoreLocation = document.getString("location") ?: ""
+                    binding.editTextLocation.setText(firestoreLocation)
+
+                    // Save Firestore lat/lng if present
+                    existingLat = document.getDouble("lat")
+                    existingLng = document.getDouble("lng")
+
                     binding.editTextSearchRadius.setText(document.getLong("searchRadius")?.toString() ?: "")
 
+                    // Existing profile picture
                     val profilePicUrl = document.getString("profilePictureUrl")
-                    val photos = document.get("photos") as? List<*>
                     if (!profilePicUrl.isNullOrEmpty()) {
+                        existingProfilePicUrl = profilePicUrl
                         Glide.with(this).load(profilePicUrl).into(binding.profilePicture)
                     }
-                    if (photos != null && photos.isNotEmpty()) {
-                        Glide.with(this).load(photos[0]).into(binding.photo1)
-                        if (photos.size > 1) {
-                            Glide.with(this).load(photos[1]).into(binding.photo2)
+
+                    // Existing photos (up to 3)
+                    val photos = document.get("photos") as? List<*>
+                    if (photos != null) {
+                        // Convert to a mutable list of strings
+                        existingPhotoUrls = photos.filterIsInstance<String>().toMutableList()
+
+                        if (existingPhotoUrls.isNotEmpty()) {
+                            Glide.with(this).load(existingPhotoUrls[0]).into(binding.photo1)
                         }
-                        if (photos.size > 2) {
-                            Glide.with(this).load(photos[2]).into(binding.photo3)
+                        if (existingPhotoUrls.size > 1) {
+                            Glide.with(this).load(existingPhotoUrls[1]).into(binding.photo2)
+                        }
+                        if (existingPhotoUrls.size > 2) {
+                            Glide.with(this).load(existingPhotoUrls[2]).into(binding.photo3)
                         }
                     }
                 }
             }
         }
 
-        // Set click listeners for image selection.
+        // Set click listeners for image selection
         binding.profilePicture.setOnClickListener { launchImagePicker(profilePicLauncher) }
         binding.photo1.setOnClickListener { launchImagePicker(photo1Launcher) }
         binding.photo2.setOnClickListener { launchImagePicker(photo2Launcher) }
         binding.photo3.setOnClickListener { launchImagePicker(photo3Launcher) }
 
-        // Set click listener for selecting location on map.
+        // Set click listener for selecting location on map
         binding.selectLocationButton.setOnClickListener {
             val intent = Intent(this, MapPickerActivity::class.java)
             locationPickerLauncher.launch(intent)
         }
 
-        // Save Changes button.
+        // Save Changes button
         binding.saveChangesButton.setOnClickListener { saveProfile() }
     }
 
@@ -193,85 +215,137 @@ class EditProfileActivity : AppCompatActivity() {
     private fun saveProfile() {
         binding.saveChangesButton.isEnabled = false
 
-        // Validate inputs.
         val name = binding.editTextName.text.toString().trim()
-        val age = binding.editTextAge.text.toString().toIntOrNull() ?: 0
-        if (age < 18) {
+        val age = binding.editTextAge.text.toString().toIntOrNull()
+        val loveLanguage = binding.spinnerLoveLanguage.selectedItem.toString()
+        val bio = binding.editTextBio.text.toString().trim()
+        val location = binding.editTextLocation.text.toString().trim()
+        val searchRadius = binding.editTextSearchRadius.text.toString().toIntOrNull()
+
+        // Final lat/lng (either newly selected or existing)
+        val finalLat = selectedLat ?: existingLat
+        val finalLng = selectedLng ?: existingLng
+
+        // VALIDATION of all required fields
+        if (name.isEmpty()) {
+            Toast.makeText(this, "Name is required", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
+        if (age == null || age < 18) {
             Toast.makeText(this, "Age must be at least 18", Toast.LENGTH_SHORT).show()
             binding.saveChangesButton.isEnabled = true
             return
         }
-        val loveLanguage = binding.spinnerLoveLanguage.selectedItem.toString()
-        val bio = binding.editTextBio.text.toString().trim()
-        // Location is provided only via map.
-        val location = binding.editTextLocation.text.toString().trim()
-        val searchRadius = binding.editTextSearchRadius.text.toString().toIntOrNull() ?: 0
-
-        if (searchRadius < 1) {
+        if (bio.isEmpty()) {
+            Toast.makeText(this, "Bio is required", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
+        if (finalLat == null || finalLng == null || location.isEmpty()) {
+            Toast.makeText(this, "Location must be selected (map or existing)", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
+        if (searchRadius == null || searchRadius < 1) {
             Toast.makeText(this, "Search Radius must be a positive number", Toast.LENGTH_SHORT).show()
             binding.saveChangesButton.isEnabled = true
             return
         }
 
-        // Prepare fields to update.
+        // We need a profile picture: either new or existing
+        val hasProfilePic = (newProfilePicUri != null || existingProfilePicUrl != null)
+        if (!hasProfilePic) {
+            Toast.makeText(this, "Profile picture is required", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
+
+        // Collect new photos into a list
+        val newPhotoUris = mutableListOf<Uri>()
+        if (newPhotoUri1 != null) newPhotoUris.add(newPhotoUri1!!)
+        if (newPhotoUri2 != null) newPhotoUris.add(newPhotoUri2!!)
+        if (newPhotoUri3 != null) newPhotoUris.add(newPhotoUri3!!)
+
+        // If user has X existing photos, we need enough new photos to reach total of 3
+        // finalPhotoCount = existingPhotoUrls.size + newPhotoUris.size
+        val finalPhotoCount = existingPhotoUrls.size + newPhotoUris.size
+        if (finalPhotoCount < 3) {
+            Toast.makeText(this, "You must have at least 3 photos total", Toast.LENGTH_SHORT).show()
+            binding.saveChangesButton.isEnabled = true
+            return
+        }
+
+        // Prepare the map of updates
         val updates = hashMapOf<String, Any>(
             "name" to name,
             "age" to age,
             "loveLanguage" to loveLanguage,
             "bio" to bio,
             "location" to location,
+            "lat" to finalLat,
+            "lng" to finalLng,
             "searchRadius" to searchRadius
         )
-        // Add coordinates if available.
-        if (selectedLat != null && selectedLng != null) {
-            updates["lat"] = selectedLat!!
-            updates["lng"] = selectedLng!!
-        }
 
-        // Prepare image upload tasks.
-        val uploadTasks = mutableListOf<Task<Uri>>()
         val uid = currentUser!!.uid
 
-        if (newProfilePicUri != null) {
-            uploadTasks.add(uploadImage(newProfilePicUri!!, "users/$uid/profilePicture.jpg"))
+        // Build tasks for newly selected images only
+        val uploadTasks = mutableListOf<Task<Uri>>()
+
+        // 1) If there's a new profile pic, upload it
+        // If no new profile pic, we'll keep the existingProfilePicUrl
+        newProfilePicUri?.let { uri ->
+            uploadTasks.add(uploadImage(uri, "users/$uid/profilePicture.jpg"))
         }
-        if (newPhotoUri1 != null) {
-            uploadTasks.add(uploadImage(newPhotoUri1!!, "users/$uid/photo1.jpg"))
-        }
-        if (newPhotoUri2 != null) {
-            uploadTasks.add(uploadImage(newPhotoUri2!!, "users/$uid/photo2.jpg"))
-        }
-        if (newPhotoUri3 != null) {
-            uploadTasks.add(uploadImage(newPhotoUri3!!, "users/$uid/photo3.jpg"))
+
+        // 2) For new photos, upload each
+        newPhotoUris.forEachIndexed { idx, photoUri ->
+            // We'll label them photoX.jpg. The file names can be anything as long as they're distinct
+            uploadTasks.add(uploadImage(photoUri, "users/$uid/photo$idx.jpg"))
         }
 
         if (uploadTasks.isEmpty()) {
+            // No new uploads, just store the existing profile pic + existing photos
+            updates["profilePictureUrl"] = existingProfilePicUrl!!
+            updates["photos"] = existingPhotoUrls
             userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
                 binding.saveChangesButton.isEnabled = true
                 finish()
             }
         } else {
+            // We have new uploads, wait until they're done
             Tasks.whenAllSuccess<Uri>(uploadTasks)
                 .addOnSuccessListener { results ->
-                    var profilePicUrl: String? = null
-                    val photoUrls = mutableListOf<String>()
-                    val uriList = listOf(newProfilePicUri, newPhotoUri1, newPhotoUri2, newPhotoUri3)
+                    // results = list of URIs in the order of the tasks
                     var resultIndex = 0
-                    uriList.forEachIndexed { idx, uri ->
-                        if (uri != null) {
-                            val downloadUrl = (results[resultIndex] as Uri).toString()
-                            resultIndex++
-                            if (idx == 0) {
-                                profilePicUrl = downloadUrl
-                            } else {
-                                photoUrls.add(downloadUrl)
-                            }
-                        }
+
+                    // If we had a new profile pic, that was the first in the list
+                    val finalProfilePicUrl = if (newProfilePicUri != null) {
+                        val uri = results[resultIndex] as Uri
+                        resultIndex++
+                        uri.toString()
+                    } else {
+                        existingProfilePicUrl!!  // fallback if user didn't update it
                     }
-                    profilePicUrl?.let { updates["profilePictureUrl"] = it }
-                    if (photoUrls.isNotEmpty()) {
-                        updates["photos"] = photoUrls
+
+                    // Next are the new photos (if any)
+                    val newlyUploadedPhotoUrls = mutableListOf<String>()
+                    while (resultIndex < results.size) {
+                        newlyUploadedPhotoUrls.add((results[resultIndex] as Uri).toString())
+                        resultIndex++
                     }
+
+                    // Combine existingPhotoUrls + newlyUploadedPhotoUrls for final 3+ photos
+                    val finalPhotos = mutableListOf<String>()
+                    finalPhotos.addAll(existingPhotoUrls)
+                    finalPhotos.addAll(newlyUploadedPhotoUrls)
+                    // If more than 3, that's okay, or you can .take(3) if you only want to store 3
+                    // but typically you can store all to allow a user to have multiple images
+                    // We'll store them all
+                    updates["profilePictureUrl"] = finalProfilePicUrl
+                    updates["photos"] = finalPhotos
+
                     userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
                         binding.saveChangesButton.isEnabled = true
                         finish()
@@ -280,6 +354,7 @@ class EditProfileActivity : AppCompatActivity() {
                 .addOnFailureListener { e ->
                     binding.saveChangesButton.isEnabled = true
                     Log.e("EditProfileActivity", "Error uploading images", e)
+                    Toast.makeText(this, "Image upload failed. Please try again.", Toast.LENGTH_SHORT).show()
                 }
         }
     }
