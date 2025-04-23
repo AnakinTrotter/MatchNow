@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "455325752412",
-    "project_id": "fc6firebaseauth-27f47",
-    "storage_bucket": "fc6firebaseauth-27f47.firebasestorage.app"
+    "project_number": "327390190015",
+    "project_id": "matchnow-64d7e",
+    "storage_bucket": "matchnow-64d7e.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:455325752412:android:9f4f4b0bab9a37a180da99",
+        "mobilesdk_app_id": "1:327390190015:android:5e6d4bdc9fa8bb402ce90a",
         "android_client_info": {
-          "package_name": "edu.utap.firebaseauth"
+          "package_name": "edu.utap.matchnow"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDYpvS5yzQchy994Lv-c-yzV-kGAn6LYFg"
+          "current_key": "AIzaSyDrjoynAy038kLWl-bBNcfZ6BBe2pFRg2A"
         }
       ],
       "services": {
