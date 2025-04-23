@@ -55,7 +55,7 @@ class EditProfileActivity : AppCompatActivity() {
     private var selectedLat: Double? = null
     private var selectedLng: Double? = null
 
-    // Store existing data from Firestore (to avoid forcing user to re-upload/ reselect if it’s already set)
+    // Store existing data from Firestore
     private var existingProfilePicUrl: String? = null
     private var existingPhotoUrls = mutableListOf<String>()
     private var existingLat: Double? = null
@@ -157,7 +157,6 @@ class EditProfileActivity : AppCompatActivity() {
                     val firestoreLocation = document.getString("location") ?: ""
                     binding.editTextLocation.setText(firestoreLocation)
 
-                    // Save Firestore lat/lng if present
                     existingLat = document.getDouble("lat")
                     existingLng = document.getDouble("lng")
 
@@ -170,10 +169,9 @@ class EditProfileActivity : AppCompatActivity() {
                         Glide.with(this).load(profilePicUrl).into(binding.profilePicture)
                     }
 
-                    // Existing photos (up to 3)
+                    // Existing photos
                     val photos = document.get("photos") as? List<*>
                     if (photos != null) {
-                        // Convert to a mutable list of strings
                         existingPhotoUrls = photos.filterIsInstance<String>().toMutableList()
 
                         if (existingPhotoUrls.isNotEmpty()) {
@@ -226,7 +224,7 @@ class EditProfileActivity : AppCompatActivity() {
         val finalLat = selectedLat ?: existingLat
         val finalLng = selectedLng ?: existingLng
 
-        // VALIDATION of all required fields
+        // VALIDATION
         if (name.isEmpty()) {
             Toast.makeText(this, "Name is required", Toast.LENGTH_SHORT).show()
             binding.saveChangesButton.isEnabled = true
@@ -253,7 +251,7 @@ class EditProfileActivity : AppCompatActivity() {
             return
         }
 
-        // We need a profile picture: either new or existing
+        // Profile picture required
         val hasProfilePic = (newProfilePicUri != null || existingProfilePicUrl != null)
         if (!hasProfilePic) {
             Toast.makeText(this, "Profile picture is required", Toast.LENGTH_SHORT).show()
@@ -261,14 +259,13 @@ class EditProfileActivity : AppCompatActivity() {
             return
         }
 
-        // Collect new photos into a list
+        // Collect new photos
         val newPhotoUris = mutableListOf<Uri>()
         if (newPhotoUri1 != null) newPhotoUris.add(newPhotoUri1!!)
         if (newPhotoUri2 != null) newPhotoUris.add(newPhotoUri2!!)
         if (newPhotoUri3 != null) newPhotoUris.add(newPhotoUri3!!)
 
-        // If user has X existing photos, we need enough new photos to reach total of 3
-        // finalPhotoCount = existingPhotoUrls.size + newPhotoUris.size
+        // If user has X existing photos, we need enough to still have at least 3 total
         val finalPhotoCount = existingPhotoUrls.size + newPhotoUris.size
         if (finalPhotoCount < 3) {
             Toast.makeText(this, "You must have at least 3 photos total", Toast.LENGTH_SHORT).show()
@@ -276,7 +273,6 @@ class EditProfileActivity : AppCompatActivity() {
             return
         }
 
-        // Prepare the map of updates
         val updates = hashMapOf<String, Any>(
             "name" to name,
             "age" to age,
@@ -293,20 +289,18 @@ class EditProfileActivity : AppCompatActivity() {
         // Build tasks for newly selected images only
         val uploadTasks = mutableListOf<Task<Uri>>()
 
-        // 1) If there's a new profile pic, upload it
-        // If no new profile pic, we'll keep the existingProfilePicUrl
+        // 1) If there's a new profile pic
         newProfilePicUri?.let { uri ->
             uploadTasks.add(uploadImage(uri, "users/$uid/profilePicture.jpg"))
         }
 
-        // 2) For new photos, upload each
+        // 2) For new photos
         newPhotoUris.forEachIndexed { idx, photoUri ->
-            // We'll label them photoX.jpg. The file names can be anything as long as they're distinct
             uploadTasks.add(uploadImage(photoUri, "users/$uid/photo$idx.jpg"))
         }
 
         if (uploadTasks.isEmpty()) {
-            // No new uploads, just store the existing profile pic + existing photos
+            // No new uploads, just store existing profile pic + existing photos
             updates["profilePictureUrl"] = existingProfilePicUrl!!
             updates["photos"] = existingPhotoUrls
             userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
@@ -314,37 +308,56 @@ class EditProfileActivity : AppCompatActivity() {
                 finish()
             }
         } else {
-            // We have new uploads, wait until they're done
+            // We have new uploads
             Tasks.whenAllSuccess<Uri>(uploadTasks)
                 .addOnSuccessListener { results ->
-                    // results = list of URIs in the order of the tasks
                     var resultIndex = 0
 
-                    // If we had a new profile pic, that was the first in the list
+                    // Decide final profile pic
                     val finalProfilePicUrl = if (newProfilePicUri != null) {
                         val uri = results[resultIndex] as Uri
                         resultIndex++
                         uri.toString()
                     } else {
-                        existingProfilePicUrl!!  // fallback if user didn't update it
+                        existingProfilePicUrl ?: ""
                     }
 
-                    // Next are the new photos (if any)
+                    // Gather newly uploaded photo URLs in the order they were uploaded
                     val newlyUploadedPhotoUrls = mutableListOf<String>()
+                    // The next results in 'results' are the new photos
                     while (resultIndex < results.size) {
                         newlyUploadedPhotoUrls.add((results[resultIndex] as Uri).toString())
                         resultIndex++
                     }
 
-                    // Combine existingPhotoUrls + newlyUploadedPhotoUrls for final 3+ photos
-                    val finalPhotos = mutableListOf<String>()
-                    finalPhotos.addAll(existingPhotoUrls)
-                    finalPhotos.addAll(newlyUploadedPhotoUrls)
-                    // If more than 3, that's okay, or you can .take(3) if you only want to store 3
-                    // but typically you can store all to allow a user to have multiple images
-                    // We'll store them all
+                    // Make sure existingPhotoUrls has at least 3 slots
+                    // (If it has fewer, pad so we can safely do [0],[1],[2])
+                    while (existingPhotoUrls.size < 3) {
+                        existingPhotoUrls.add("")
+                    }
+
+                    // Now replace whichever slots actually got new URIs
+                    // We'll track how many newPhotoUris we've used so far
+                    var newlyUploadedIndex = 0
+
+                    // If user picked a new photo for slot 1, replace existingPhotoUrls[0]
+                    if (newPhotoUri1 != null) {
+                        existingPhotoUrls[0] = newlyUploadedPhotoUrls[newlyUploadedIndex]
+                        newlyUploadedIndex++
+                    }
+                    // If user picked a new photo for slot 2, replace existingPhotoUrls[1]
+                    if (newPhotoUri2 != null) {
+                        existingPhotoUrls[1] = newlyUploadedPhotoUrls[newlyUploadedIndex]
+                        newlyUploadedIndex++
+                    }
+                    // If user picked a new photo for slot 3, replace existingPhotoUrls[2]
+                    if (newPhotoUri3 != null) {
+                        existingPhotoUrls[2] = newlyUploadedPhotoUrls[newlyUploadedIndex]
+                        newlyUploadedIndex++
+                    }
+
                     updates["profilePictureUrl"] = finalProfilePicUrl
-                    updates["photos"] = finalPhotos
+                    updates["photos"] = existingPhotoUrls
 
                     userDocRef.set(updates, SetOptions.merge()).addOnCompleteListener {
                         binding.saveChangesButton.isEnabled = true
