@@ -8,6 +8,7 @@ import android.widget.Button
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.bumptech.glide.Glide
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -46,27 +47,24 @@ class MatchProfileFragment : Fragment() {
         val userId = targetUserId ?: return
         val currentUid = currentUserId ?: return
 
-        // Fetch current user's matches
         firestore.collection("users").document(currentUid).get().addOnSuccessListener { currentUserDoc ->
             val matches = currentUserDoc.get("matches") as? List<*> ?: emptyList<String>()
 
-            // Inflate and setup the action button
             val buttonLayout = View.inflate(context, R.layout.match_action_button, null)
             val actionButton = buttonLayout.findViewById<Button>(R.id.matchActionButton)
 
             if (matches.contains(userId)) {
                 actionButton.text = "Message"
                 actionButton.setOnClickListener {
-                    Toast.makeText(requireContext(), "Chat coming soon!", Toast.LENGTH_SHORT).show()
+                    startOrOpenChat(currentUid, userId)
                 }
             } else {
                 actionButton.text = "Match"
                 actionButton.setOnClickListener {
-                    performMatch()
+                    performMatch(currentUid, userId)
                 }
             }
 
-            // Replace editProfileButton with this new action button
             val editIndex = profileContainer.indexOfChild(binding.editProfileButton)
             profileContainer.removeView(binding.editProfileButton)
             profileContainer.addView(buttonLayout, editIndex)
@@ -94,9 +92,74 @@ class MatchProfileFragment : Fragment() {
         }
     }
 
-    private fun performMatch() {
-        val otherUserId = targetUserId ?: return
-        val currentUid = currentUserId ?: return
+    private fun createChatId(uid1: String, uid2: String): String {
+        return listOf(uid1, uid2).sorted().joinToString("-")
+    }
+
+    private fun startOrOpenChat(uid1: String, uid2: String) {
+        val chatId = createChatId(uid1, uid2)
+        val chatRef = firestore.collection("chats").document(chatId)
+
+        chatRef.get().addOnSuccessListener { doc ->
+            if (!doc.exists()) {
+                // Step 1: Create chat doc
+                chatRef.set(
+                    mapOf(
+                        "users" to listOf(uid1, uid2),
+                        "lastMessage" to "Started chat",
+                        "lastUpdated" to Timestamp.now()
+                    )
+                ).addOnSuccessListener {
+                    // Step 2: Add init message
+                    chatRef.collection("messages").document("init").set(
+                        mapOf(
+                            "from" to uid1,
+                            "to" to uid2,
+                            "message" to "Started chat",
+                            "timestamp" to Timestamp.now()
+                        )
+                    ).addOnSuccessListener {
+                        // Step 3: Navigate to chat
+                        navigateToChat(chatId, uid2)
+                    }.addOnFailureListener {
+                        Toast.makeText(requireContext(), "Failed to write initial message", Toast.LENGTH_SHORT).show()
+                        it.printStackTrace()
+                    }
+                }.addOnFailureListener {
+                    Toast.makeText(requireContext(), "Failed to create chat", Toast.LENGTH_SHORT).show()
+                    it.printStackTrace()
+                }
+            } else {
+                // Chat exists, just open it
+                navigateToChat(chatId, uid2)
+            }
+        }.addOnFailureListener {
+            Toast.makeText(requireContext(), "Failed to load chat", Toast.LENGTH_SHORT).show()
+            it.printStackTrace()
+        }
+    }
+
+
+    private fun navigateToChat(chatId: String, otherUserId: String) {
+        firestore.collection("users").document(otherUserId).get()
+            .addOnSuccessListener { user ->
+                val name = user.getString("name") ?: "Unknown"
+                Toast.makeText(requireContext(), "Opening chat with $name", Toast.LENGTH_SHORT).show()
+
+                val fragment = ChatMessageFragment.newInstance(chatId, otherUserId, name)
+                requireActivity().supportFragmentManager.beginTransaction()
+                    .replace(R.id.fragmentContainer, fragment)
+                    .addToBackStack(null)
+                    .commit()
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "Failed to load user info", Toast.LENGTH_SHORT).show()
+                it.printStackTrace()
+            }
+    }
+
+
+    private fun performMatch(currentUid: String, otherUserId: String) {
         val batch = firestore.batch()
 
         val currentRef = firestore.collection("users").document(currentUid)
@@ -107,7 +170,7 @@ class MatchProfileFragment : Fragment() {
 
         batch.commit().addOnSuccessListener {
             Toast.makeText(requireContext(), "It's a match!", Toast.LENGTH_SHORT).show()
-            requireActivity().onBackPressedDispatcher.onBackPressed()
+            startOrOpenChat(currentUid, otherUserId)
         }.addOnFailureListener {
             Toast.makeText(requireContext(), "Failed to match.", Toast.LENGTH_SHORT).show()
         }
