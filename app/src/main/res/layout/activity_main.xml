@@ -7,6 +7,17 @@
     android:padding="32dp"
     android:background="?android:attr/windowBackground">
 
+    <TextView
+        android:id="@+id/emptyText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Match Now"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textSize="38sp"
+        android:textColor="@color/purple_500"
+        android:layout_marginBottom="64dp"/>
+
     <!-- Big Heart Icon -->
     <ImageView
         android:id="@+id/compassIcon"

@@ -229,7 +229,8 @@ class MatchFragment : Fragment() {
 
                         val userInfo = Triple(name, age, profilePic)
                         val isMutualMatch = uid in myMatches && currentUserId in theirMatches
-                        val isPotential = uid in myMatches && currentUserId !in theirMatches &&
+                        val isPotential = uid !in myMatches &&
+                                currentUserId !in theirMatches &&
                                 distance <= myRadius && distance <= theirRadius
 
                         if (isMutualMatch) {
