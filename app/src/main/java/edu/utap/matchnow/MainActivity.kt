@@ -16,9 +16,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Hide the app bar for a full-screen experience.
+        supportActionBar?.hide()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         // Handle login button click
         binding.loginButton.setOnClickListener {
             Log.d(TAG, "Login button clicked")

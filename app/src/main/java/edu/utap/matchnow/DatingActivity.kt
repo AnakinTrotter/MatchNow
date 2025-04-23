@@ -11,6 +11,8 @@ class DatingActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Hide the app bar for a full-screen experience.
+        supportActionBar?.hide()
         binding = ActivityDatingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

@@ -15,14 +15,15 @@
         android:padding="16dp">
 
         <!-- Profile Title -->
+        <!-- User Name and Age -->
         <TextView
-            android:id="@+id/profileTitle"
+            android:id="@+id/nameAge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text=""
-            android:textStyle="bold"
+            android:text="Alex, 25"
             android:textSize="24sp"
-            android:layout_marginBottom="24dp" />
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
 
         <!-- Circular Profile Picture -->
         <ImageView
@@ -35,24 +36,6 @@
             android:background="@drawable/circle_background"
             android:clipToOutline="true" />
 
-        <!-- User Name and Age -->
-        <TextView
-            android:id="@+id/nameAge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Alex, 25"
-            android:textSize="18sp"
-            android:layout_marginBottom="8dp" />
-
-        <!-- Love Language -->
-        <TextView
-            android:id="@+id/loveLanguage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Love Language: Quality Time"
-            android:textSize="16sp"
-            android:layout_marginBottom="8dp" />
-
         <!-- User Bio in Quotes -->
         <TextView
             android:id="@+id/bio"
@@ -61,6 +44,14 @@
             android:text="&quot;Coffee lover and museum enthusiast.&quot;"
             android:textSize="16sp"
             android:layout_marginBottom="16dp" />
+        <!-- Love Language -->
+        <TextView
+            android:id="@+id/loveLanguage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Love Language: Quality Time"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp" />
 
         <!-- Location Text -->
         <TextView

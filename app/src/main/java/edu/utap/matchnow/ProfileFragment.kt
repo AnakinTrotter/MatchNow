@@ -51,7 +51,6 @@ class ProfileFragment : Fragment() {
                         safeBinding.bio.text = "\"$bio\""
                         safeBinding.locationText.text = "Location: $location"
                         safeBinding.searchRadiusText.text = "Searching Within: $searchRadius miles"
-                        safeBinding.profileTitle.text = "Your Profile"
 
                         profilePictureUrl?.takeIf { it.isNotEmpty() }?.let { url ->
                             Glide.with(requireContext())
