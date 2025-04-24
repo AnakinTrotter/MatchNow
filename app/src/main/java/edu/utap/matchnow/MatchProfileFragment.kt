@@ -1,6 +1,7 @@
 package edu.utap.matchnow
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -39,37 +40,58 @@ class MatchProfileFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Hide the logout and edit profile buttons since we're in MatchProfileFragment
         binding.logoutButton.visibility = View.GONE
         binding.editProfileButton.visibility = View.GONE
-
-        val profileContainer = binding.root.findViewById<ViewGroup>(R.id.profileContainer)
 
         val userId = targetUserId ?: return
         val currentUid = currentUserId ?: return
 
+        // First, fetch the current user's data...
         firestore.collection("users").document(currentUid).get().addOnSuccessListener { currentUserDoc ->
-            val matches = currentUserDoc.get("matches") as? List<*> ?: emptyList<String>()
+            val myMatches = currentUserDoc.get("matches") as? List<String> ?: emptyList()
 
-            val buttonLayout = View.inflate(context, R.layout.match_action_button, null)
-            val actionButton = buttonLayout.findViewById<Button>(R.id.matchActionButton)
+            // ...then fetch the target user's data
+            firestore.collection("users").document(userId).get().addOnSuccessListener { targetDoc ->
+                val targetMatches = targetDoc.get("matches") as? List<String> ?: emptyList()
 
-            if (matches.contains(userId)) {
-                actionButton.text = "Message"
-                actionButton.setOnClickListener {
-                    startOrOpenChat(currentUid, userId)
+                // Inflate our custom action button layout (must contain a Button with id matchActionButton)
+                val buttonLayout = View.inflate(context, R.layout.match_action_button, null)
+                val actionButton = buttonLayout.findViewById<Button>(R.id.matchActionButton)
+
+                // Determine button state:
+                // 1. If the current user has already sent a match request (their matches contain targetUserId)
+                if (myMatches.contains(userId)) {
+                    // If the target user has also matched back, then mutual match → "Message"
+                    if (targetMatches.contains(currentUid)) {
+                        actionButton.text = "Message"
+                        actionButton.isEnabled = true
+                        actionButton.setOnClickListener {
+                            startOrOpenChat(currentUid, userId)
+                        }
+                    } else {
+                        // Only current user has matched → "Awaiting Response..."
+                        actionButton.text = "Awaiting Response..."
+                        actionButton.isEnabled = false
+                    }
+                } else {
+                    // No match request yet → "Match"
+                    actionButton.text = "Match"
+                    actionButton.isEnabled = true
+                    actionButton.setOnClickListener {
+                        performMatch(currentUid, userId)
+                    }
                 }
-            } else {
-                actionButton.text = "Match"
-                actionButton.setOnClickListener {
-                    performMatch(currentUid, userId)
-                }
+
+                // Replace the existing editProfileButton in the profile container with our action button.
+                val profileContainer = binding.root.findViewById<ViewGroup>(R.id.profileContainer)
+                val editIndex = profileContainer.indexOfChild(binding.editProfileButton)
+                profileContainer.removeView(binding.editProfileButton)
+                profileContainer.addView(buttonLayout, editIndex)
             }
-
-            val editIndex = profileContainer.indexOfChild(binding.editProfileButton)
-            profileContainer.removeView(binding.editProfileButton)
-            profileContainer.addView(buttonLayout, editIndex)
         }
 
+        // Load the target user's profile info for display
         firestore.collection("users").document(userId).get().addOnSuccessListener { doc ->
             if (doc.exists()) {
                 binding.nameAge.text = "${doc.getString("name")}, ${doc.getLong("age")?.toInt() ?: 0}"
@@ -92,10 +114,16 @@ class MatchProfileFragment : Fragment() {
         }
     }
 
+    /**
+     * Creates a chat ID by sorting the two UIDs in descending order and joining with a dash.
+     */
     private fun createChatId(uid1: String, uid2: String): String {
         return listOf(uid1, uid2).sortedDescending().joinToString("-")
     }
 
+    /**
+     * Starts or opens a chat with the target user.
+     */
     private fun startOrOpenChat(uid1: String, uid2: String) {
         val chatId = createChatId(uid1, uid2)
         val chatRef = firestore.collection("chats").document(chatId)
@@ -111,9 +139,9 @@ class MatchProfileFragment : Fragment() {
 
                 val userRef1 = firestore.collection("users").document(uid1)
                 val userRef2 = firestore.collection("users").document(uid2)
-
                 val batch = firestore.batch()
                 batch.set(chatRef, chatData)
+                // Optionally update each user's "chatsWith" field:
                 batch.update(userRef1, "chatsWith", FieldValue.arrayUnion(uid2))
                 batch.update(userRef2, "chatsWith", FieldValue.arrayUnion(uid1))
 
@@ -144,12 +172,14 @@ class MatchProfileFragment : Fragment() {
         }
     }
 
+    /**
+     * Navigates to the ChatMessageFragment to open the chat.
+     */
     private fun navigateToChat(chatId: String, otherUserId: String) {
         firestore.collection("users").document(otherUserId).get()
             .addOnSuccessListener { user ->
                 val name = user.getString("name") ?: "Unknown"
                 Toast.makeText(requireContext(), "Opening chat with $name", Toast.LENGTH_SHORT).show()
-
                 val fragment = ChatMessageFragment.newInstance(chatId, otherUserId, name)
                 requireActivity().supportFragmentManager.beginTransaction()
                     .replace(R.id.fragmentContainer, fragment)
@@ -162,22 +192,21 @@ class MatchProfileFragment : Fragment() {
             }
     }
 
-
+    /**
+     * Called when the current user clicks "Match". This adds the targetUserId only to the current user’s "matches" field.
+     */
     private fun performMatch(currentUid: String, otherUserId: String) {
-        val batch = firestore.batch()
-
-        val currentRef = firestore.collection("users").document(currentUid)
-        val otherRef = firestore.collection("users").document(otherUserId)
-
-        batch.update(currentRef, "matches", FieldValue.arrayUnion(otherUserId))
-        batch.update(otherRef, "matches", FieldValue.arrayUnion(currentUid))
-
-        batch.commit().addOnSuccessListener {
-            Toast.makeText(requireContext(), "It's a match!", Toast.LENGTH_SHORT).show()
-            startOrOpenChat(currentUid, otherUserId)
-        }.addOnFailureListener {
-            Toast.makeText(requireContext(), "Failed to match.", Toast.LENGTH_SHORT).show()
-        }
+        firestore.collection("users").document(currentUid)
+            .update("matches", FieldValue.arrayUnion(otherUserId))
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Match request sent", Toast.LENGTH_SHORT).show()
+                // Navigate back to MatchFragment
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "Failed to send match request.", Toast.LENGTH_SHORT).show()
+                it.printStackTrace()
+            }
     }
 
     override fun onDestroyView() {

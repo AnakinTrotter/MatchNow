@@ -229,9 +229,8 @@ class MatchFragment : Fragment() {
 
                         val userInfo = Triple(name, age, profilePic)
                         val isMutualMatch = uid in myMatches && currentUserId in theirMatches
-                        val isPotential = uid !in myMatches &&
-                                currentUserId !in theirMatches &&
-                                distance <= myRadius && distance <= theirRadius
+                        val isPotential = distance <= myRadius && distance <= theirRadius && !isMutualMatch
+
 
                         if (isMutualMatch) {
                             Log.d("MatchDebug", "✅ Confirmed match: $uid")
